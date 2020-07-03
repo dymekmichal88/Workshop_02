@@ -1,75 +1,53 @@
-from psycopg2 import connect
+from psycopg2 import connect, OperationalError
+
+CREATE_DB = "CREATE DATABASE workshop;"
+
+CREATE_USERS_TABLE = """CREATE TABLE users(
+    id serial PRIMARY KEY, 
+    username varchar(255) UNIQUE,
+    hashed_password varchar(80))"""
+
+CREATE_MESSAGES_TABLE = """CREATE TABLE messages(
+    id SERIAL, 
+    from_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    to_id INTEGER REFERENCES users(id) ON DELETE CASCADE, 
+    text varchar(255),
+    creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)"""
 
 USER = "postgres"
-HOST = "127.0.0.1"
 PASSWORD = "coderslab"
+HOST = "127.0.0.1"
 
-
-def create_db(db, debug=True):
-    try:
-        cnx = connect(user=USER, password=PASSWORD, host=HOST);
-    except Exception as e:
-        if debug: print("Error", e.pgcode, ":", e)
-        return False
+try:
+    cnx = connect(user=USER, password=PASSWORD, host=HOST)
     cnx.autocommit = True
-    cur = cnx.cursor()
+    cursor = cnx.cursor()
     try:
-        cur.execute(f"CREATE DATABASE {db}")
+        cursor.execute(CREATE_DB)
+        print("Database created")
     except Exception as e:
-        if debug and e.pgcode == "42P04":
-            print("DataBase already exist!")
-        elif debug:
-            print("Error", e.pgcode, ":", e)
-        cur.close()
-        cnx.close()
-        return False
-    cur.close()
+        print("Database exists ", e)
     cnx.close()
-    return print("DataBase created")
+except OperationalError as e:
+    print("Connection Error: ", e)
 
-
-def create_tables(debug=False):
-    try:
-        cnx = connect(user=USER, password=PASSWORD, host=HOST, database="workshop2");
-    except Exception as e:
-        if debug: print("Error ", e.pgcode, ":", e)
-        return False
+try:
+    cnx = connect(database="workshop", user=USER, password=PASSWORD, host=HOST)
     cnx.autocommit = True
-    cur = cnx.cursor()
-    sql = """
-        CREATE TABLE Users(
-        id SERIAL PRIMARY KEY,
-        username VARCHAR(255) NOT NULL,
-        hashed_password VARCHAR(80) NOT NULL
-        );
-    """
-    try:
-        cur.execute(sql)
-    except Exception as e:
-        if debug and e.pgcode == "42P07":
-            print("Table already exists!")
-        elif debug:
-            print("Error ", e.pgcode, ":", e)
-        return False
-    sql = """
-        CREATE TABLE Messages(
-            id SERIAL PRIMARY KEY,
-            from_id INT REFERENCES Users(id) NOT NULL,
-            to_id INT REFERENCES Users(id) NOT NULL,
-            creation_date TIMESTAMP
-        );
-    """
-    try:
-        cur.execute(sql)
-    except Exception as e:
-        if debug and e.pgcode == "42P07":
-            print("Table already exists!")
-        elif debug:
-            print("Error ", e.pgcode, ":", e)
-        return False
-    return print("Tables created")
+    cursor = cnx.cursor()
 
-
-if __name__ == "__main__":
-    create_db("Workshop2", debug=True)
-    create_tables(debug=True)
+    try:
+        cursor.execute(CREATE_USERS_TABLE)
+        print("Table users created")
+    except Exception as e:
+        if e.pgcode == "42P07":
+            print("Table already exists!")
+    try:
+        cursor.execute(CREATE_MESSAGES_TABLE)
+        print("Table messages created")
+    except Exception as e:
+        if e.pgcode == "42P07":
+            print("Table already exists!")
+    cnx.close()
+except OperationalError as e:
+    print("Connection Error: ", e)
